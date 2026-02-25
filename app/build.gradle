@@ -1,0 +1,70 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace 'com.datrixpath.myapplication'
+    compileSdk {
+        version = release(36)
+    }
+
+    defaultConfig {
+        applicationId "com.datrixpath.myapplication"
+        minSdk 24
+        targetSdk 36
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+tasks.register('minifyAssets') {
+    doLast {
+        def assetsDir = file("src/main/assets")
+        if (!assetsDir.exists()) return
+
+        assetsDir.eachFileRecurse { file ->
+            if (file.name.endsWith(".js") && !file.name.endsWith(".min.js")) {
+                println ">> 正在壓縮 JS: ${file.name}"
+                def cmd = Os.isFamily(Os.FAMILY_WINDOWS) ? "terser.cmd" : "terser"
+                exec { commandLine cmd, file.absolutePath, "-o", file.absolutePath, "--compress", "--mangle" }
+            }
+            else if (file.name.endsWith(".html")) {
+                println ">> 正在壓縮 HTML: ${file.name}"
+                def cmd = Os.isFamily(Os.FAMILY_WINDOWS) ? "html-minifier-terser.cmd" : "html-minifier-terser"
+                exec {
+                    commandLine cmd, "--remove-comments", "--collapse-whitespace",
+                                "--minify-js", "true", "--minify-css", "true",
+                                "-o", file.absolutePath, file.absolutePath
+                }
+            }
+        }
+    }
+}
+
+project.afterEvaluate {
+    tasks.named("preBuild").configure { dependsOn minifyAssets }
+}
+dependencies {
+    implementation libs.appcompat
+    implementation libs.material
+    implementation libs.activity
+    implementation libs.constraintlayout
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+    implementation libs.lifecycle.viewmodel
+    implementation libs.lifecycle.livedata
+}
